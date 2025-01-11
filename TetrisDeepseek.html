@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тетрис</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+        }
+        #game-container {
+            display: flex;
+            flex-direction: row;
+            align-items: flex-start;
+        }
+        #tetris {
+            border: 2px solid #000;
+            background-color: #fff;
+        }
+        #info-panel {
+            margin-left: 20px;
+        }
+        #next-piece {
+            margin-top: 20px;
+        }
+        #controls {
+            margin-top: 20px;
+        }
+        button {
+            margin: 5px;
+            padding: 10px;
+            font-size: 16px;
+        }
+        table {
+            margin-top: 20px;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #000;
+            padding: 8px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>Тетрис</h1>
+    <div id="game-container">
+        <canvas id="tetris" width="200" height="400"></canvas>
+        <div id="info-panel">
+            <div id="score">Счёт: 0</div>
+            <div id="next-piece">Следующая фигура:</div>
+            <div id="delay">Задержка: 1000 мс</div>
+            <div id="controls">
+                <button id="start-pause">Старт/Пауза</button>
+                <button id="left">Влево</button>
+                <button id="right">Вправо</button>
+                <button id="rotate">Вращать</button>
+                <button id="drop">Опустить</button>
+                <button id="restart">Рестарт</button>
+            </div>
+            <table id="leaderboard">
+                <thead>
+                    <tr>
+                        <th>Место</th>
+                        <th>Имя</th>
+                        <th>Счёт</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('tetris');
+        const context = canvas.getContext('2d');
+        const scale = 20;
+        const rows = canvas.height / scale;
+        const columns = canvas.width / scale;
+        const pieces = [
+            [[1, 1, 1, 1]], // I
+            [[1, 1, 1], [0, 1, 0]], // T
+            [[1, 1], [1, 1]], // O
+            [[1, 1, 0], [0, 1, 1]], // S
+            [[0, 1, 1], [1, 1, 0]], // Z
+            [[1, 1, 1], [1, 0, 0]], // L
+            [[1, 1, 1], [0, 0, 1]]  // J
+        ];
+        const colors = ['#FF0D72', '#0DC2FF', '#0DFF72', '#F538FF', '#FF8E0D', '#FFE138', '#3877FF'];
+        let playerName = '';
+        let score = 0;
+        let delay = 1000;
+        let dropCounter = 0;
+        let lastTime = 0;
+        let gameOver = false;
+        let paused = false;
+        let board = [];
+        let currentPiece;
+        let nextPiece;
+        let leaderboard = JSON.parse(localStorage.getItem('leaderboard')) || [];
+        let animationFrameId;
+
+        function createBoard() {
+            board = Array.from({ length: rows }, () => Array(columns).fill(0));
+        }
+
+        function drawPiece(piece, offset, color) {
+            piece.forEach((row, y) => {
+                row.forEach((value, x) => {
+                    if (value) {
+                        context.fillStyle = color;
+                        context.fillRect((offset.x + x) * scale, (offset.y + y) * scale, scale, scale);
+                        context.strokeStyle = '#000';
+                        context.strokeRect((offset.x + x) * scale, (offset.y + y) * scale, scale, scale);
+                    }
+                });
+            });
+        }
+
+        function draw() {
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            board.forEach((row, y) => {
+                row.forEach((value, x) => {
+                    if (value) {
+                        context.fillStyle = colors[value - 1];
+                        context.fillRect(x * scale, y * scale, scale, scale);
+                        context.strokeStyle = '#000';
+                        context.strokeRect(x * scale, y * scale, scale, scale);
+                    }
+                });
+            });
+            if (currentPiece) {
+                drawPiece(currentPiece.piece, currentPiece.pos, colors[pieces.indexOf(currentPiece.piece)]);
+            }
+        }
+
+        function update(time = 0) {
+            if (paused || gameOver) return;
+
+            const deltaTime = time - lastTime;
+            lastTime = time;
+            dropCounter += deltaTime;
+
+            if (dropCounter > delay) {
+                drop();
+                dropCounter = 0;
+            }
+
+            draw();
+            animationFrameId = requestAnimationFrame(update);
+        }
+
+        function drop() {
+            if (!currentPiece) return;
+
+            currentPiece.pos.y++;
+            if (collide()) {
+                currentPiece.pos.y--;
+                merge();
+                removeRows();
+                if (currentPiece.pos.y === 0) {
+                    gameOver = true;
+                    updateLeaderboard();
+                    alert('Игра окончена!');
+                    return;
+                }
+                currentPiece = nextPiece;
+                nextPiece = createPiece();
+            }
+        }
+
+        function collide() {
+            return currentPiece.piece.some((row, y) => {
+                return row.some((value, x) => {
+                    return value !== 0 && (
+                        board[currentPiece.pos.y + y] === undefined ||
+                        board[currentPiece.pos.y + y][currentPiece.pos.x + x] !== 0
+                    );
+                });
+            });
+        }
+
+        function merge() {
+            currentPiece.piece.forEach((row, y) => {
+                row.forEach((value, x) => {
+                    if (value) {
+                        board[currentPiece.pos.y + y][currentPiece.pos.x + x] = pieces.indexOf(currentPiece.piece) + 1;
+                    }
+                });
+            });
+        }
+
+        function removeRows() {
+            let rowsRemoved = 0;
+            for (let y = board.length - 1; y >= 0; y--) {
+                if (board[y].every(cell => cell !== 0)) {
+                    rowsRemoved++;
+                    board.splice(y, 1);
+                    board.unshift(new Array(columns).fill(0));
+                }
+            }
+            if (rowsRemoved > 0) {
+                score += calculateScore(rowsRemoved);
+                updateScore();
+                if (score > 100) {
+                    delay *= 0.9;
+                    updateDelay();
+                }
+            }
+        }
+
+        function calculateScore(rowsRemoved) {
+            return rowsRemoved * 100;
+        }
+
+        function createPiece() {
+            const piece = pieces[Math.floor(Math.random() * pieces.length)];
+            return {
+                piece: piece,
+                pos: { x: Math.floor(columns / 2) - Math.floor(piece[0].length / 2), y: 0 }
+            };
+        }
+
+        function updateScore() {
+            document.getElementById('score').innerText = `Счёт: ${score}`;
+        }
+
+        function updateDelay() {
+            document.getElementById('delay').innerText = `Задержка: ${Math.round(delay)} мс`;
+        }
+
+        function updateLeaderboard() {
+            leaderboard.push({ name: playerName, score: score });
+            leaderboard.sort((a, b) => b.score - a.score);
+            if (leaderboard.length > 10) {
+                leaderboard.pop();
+            }
+            localStorage.setItem('leaderboard', JSON.stringify(leaderboard));
+            renderLeaderboard();
+        }
+
+        function renderLeaderboard() {
+            const tbody = document.querySelector('#leaderboard tbody');
+            tbody.innerHTML = '';
+            leaderboard.forEach((player, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td>${index + 1}</td><td>${player.name}</td><td>${player.score}</td>`;
+                tbody.appendChild(row);
+            });
+        }
+
+        function startGame() {
+            if (!playerName) {
+                playerName = prompt('Введите ваше имя:');
+                if (!playerName) {
+                    playerName = 'Игрок';
+                }
+            }
+            createBoard();
+            currentPiece = createPiece();
+            nextPiece = createPiece();
+            score = 0;
+            delay = 1000;
+            gameOver = false;
+            paused = false;
+            updateScore();
+            updateDelay();
+            renderLeaderboard();
+            update();
+        }
+
+        function pauseGame() {
+            paused = !paused;
+            if (paused) {
+                cancelAnimationFrame(animationFrameId);
+            } else {
+                update();
+            }
+        }
+
+        document.addEventListener('keydown', event => {
+            if (event.key === ' ') {
+                pauseGame();
+            } else if (event.key === 'ArrowLeft') {
+                currentPiece.pos.x--;
+                if (collide()) {
+                    currentPiece.pos.x++;
+                }
+            } else if (event.key === 'ArrowRight') {
+                currentPiece.pos.x++;
+                if (collide()) {
+                    currentPiece.pos.x--;
+                }
+            } else if (event.key === 'ArrowUp') {
+                rotatePiece();
+            } else if (event.key === 'ArrowDown') {
+                drop();
+            } else if (event.key === 'Escape') {
+                startGame();
+            }
+        });
+
+        document.getElementById('start-pause').addEventListener('click', pauseGame);
+        document.getElementById('left').addEventListener('click', () => {
+            currentPiece.pos.x--;
+            if (collide()) {
+                currentPiece.pos.x++;
+            }
+        });
+        document.getElementById('right').addEventListener('click', () => {
+            currentPiece.pos.x++;
+            if (collide()) {
+                currentPiece.pos.x--;
+            }
+        });
+        document.getElementById('rotate').addEventListener('click', rotatePiece);
+        document.getElementById('drop').addEventListener('click', drop);
+        document.getElementById('restart').addEventListener('click', startGame);
+
+        function rotatePiece() {
+            const originalPiece = currentPiece.piece;
+            const rotatedPiece = currentPiece.piece[0].map((val, index) => currentPiece.piece.map(row => row[index]).reverse());
+            currentPiece.piece = rotatedPiece;
+            if (collide()) {
+                currentPiece.piece = originalPiece;
+            }
+        }
+
+        startGame();
+    </script>
+</body>
+</html>
+
