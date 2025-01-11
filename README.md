@@ -3,8 +3,6 @@ Attempts to write game code using prompts to different AI systems.
 
 <img src="2025.jpeg" alt="All the best in 2025!" width="200"/>
 
-![All the best in 2025!](2025.jpeg?raw=true "Tetris from AI at start of 2025 year!")
-
 I wrote a prompt and sent it to different AI systems, and saved the result in a file called Tetris-AI.html, where AI is the name of the AI ​​that created the game.
 
 Here is the prompt that was set to generate the code:
@@ -67,12 +65,15 @@ Constants in the script and variables should be declared before calling function
 
 For example, const pieces - a table containing Tetris figures, should be placed immediately in the script after the declaration of the script, immediately after <script>. It is necessary to write the code in the form of one html page in accordance with the description above.
 
+<img src="TetrisDeepseek.png" alt="This game is the best result that the AI ​​Deepseek-2 has given." width="200"/>
 
-![This game is the best result that the AI ​​Deepseek-2 has given.](TetrisDeepseek.png?raw=true "Tetris made by Deepseek")
+<img src="TetrisGrok.png" alt="This game is the best result that the Grok-2 AI has produced." width="200"/>
 
-![This game is the best result that the Grok-2 AI has produced.](TetrisGrok.png?raw=true "Tetris made by Grok-2")
-
-![This game is the best result that the AI ​​Mistral has given.](TetrisMistral.png?raw=true "Tetris made by Mistral")
-
+<img src="TetrisMistral.png" alt="This game is the best result that the AI ​​Mistral has given." width="200"/>
 
 As a result, I got pages with games.
+
+#//![All the best in 2025!](2025.jpeg?raw=true "Tetris from AI at start of 2025 year!")
+#//![This game is the best result that the AI ​​Deepseek-2 has given.](TetrisDeepseek.png?raw=true "Tetris made by Deepseek")
+#//![This game is the best result that the Grok-2 AI has produced.](TetrisGrok.png?raw=true "Tetris made by Grok-2")
+#//![This game is the best result that the AI ​​Mistral has given.](TetrisMistral.png?raw=true "Tetris made by Mistral")
