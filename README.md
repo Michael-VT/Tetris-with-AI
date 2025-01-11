@@ -64,6 +64,6 @@ Constants in the script and variables should be declared before calling function
 For example, const pieces - a table containing Tetris figures, should be placed immediately in the script after the declaration of the script, immediately after <script>. It is necessary to write the code in the form of one html page in accordance with the description above.
 
 
-
+![Alt text](TetrisMistral.png?raw=true "Tetris made by Mistral")
 
 As a result, I got pages with games.
