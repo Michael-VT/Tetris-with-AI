@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tetris Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        canvas {
+            border: 1px solid black;
+        }
+        .game-container {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+        }
+        .controls {
+            display: flex;
+            justify-content: center;
+            margin-top: 10px;
+        }
+        .controls button {
+            margin: 5px;
+            padding: 10px;
+            font-size: 16px;
+        }
+        .leaderboard {
+            margin-left: 20px;
+        }
+        .instructions {
+            margin-top: 20px;
+        }
+        .score {
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+        .next-piece {
+            margin-top: 20px;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <canvas id="tetrisCanvas" width="300" height="600"></canvas>
+        <div class="leaderboard">
+            <div class="score" id="scoreDisplay">Score: 0</div>
+            <div class="next-piece" id="nextPieceDisplay">Next Piece:</div>
+            <canvas id="nextPieceCanvas" width="120" height="120"></canvas>
+            <h2>Leaderboard</h2>
+            <ul id="leaderboardList"></ul>
+            <div class="instructions">
+                <h3>Instructions</h3>
+                <p>Use the arrow keys or buttons to control the game:</p>
+                <ul>
+                    <li>Left Arrow / Left Button: Move piece left</li>
+                    <li>Right Arrow / Right Button: Move piece right</li>
+                    <li>Up Arrow / Rotate Button: Rotate piece</li>
+                    <li>Down Arrow / Drop Button: Drop piece faster</li>
+                    <li>Space / Start/Pause Button: Start or pause the game</li>
+                    <li>Escape / Restart Button: End the current game and start a new game</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="controls">
+        <button id="startPauseButton">Start/Pause</button>
+        <button id="leftButton">Left</button>
+        <button id="rightButton">Right</button>
+        <button id="rotateButton">Rotate</button>
+        <button id="dropButton">Drop</button>
+        <button id="restartButton">Restart</button>
+    </div>
+    <script>
+        const pieces = {
+            'I': [
+                [1, 1, 1, 1]
+            ],
+            'J': [
+                [0, 0, 1],
+                [1, 1, 1]
+            ],
+            'L': [
+                [1, 0, 0],
+                [1, 1, 1]
+            ],
+            'O': [
+                [1, 1],
+                [1, 1]
+            ],
+            'S': [
+                [0, 1, 1],
+                [1, 1, 0]
+            ],
+            'T': [
+                [0, 1, 0],
+                [1, 1, 1]
+            ],
+            'Z': [
+                [1, 1, 0],
+                [0, 1, 1]
+            ]
+        };
+
+        const pieceColors = {
+            'I': 'cyan',
+            'J': 'blue',
+            'L': 'orange',
+            'O': 'yellow',
+            'S': 'green',
+            'T': 'purple',
+            'Z': 'red'
+        };
+
+        const canvas = document.getElementById('tetrisCanvas');
+        const context = canvas.getContext('2d');
+        const nextPieceCanvas = document.getElementById('nextPieceCanvas');
+        const nextPieceContext = nextPieceCanvas.getContext('2d');
+        const grid = createGrid();
+        let currentPiece = getNewPiece();
+        let nextPiece = getNewPiece();
+        let score = 0;
+        let dropInterval = 1000;
+        let dropCounter = 0;
+        let lastTime = 0;
+        let gamePaused = true;
+        let playerName = prompt("Enter your name:");
+        let pieceCount = 0;
+
+        function createGrid() {
+            const rows = 20;
+            const cols = 10;
+            const grid = [];
+            for (let r = 0; r < rows; r++) {
+                grid[r] = [];
+                for (let c = 0; c < cols; c++) {
+                    grid[r][c] = 0;
+                }
+            }
+            console.log('createGrid');
+            return grid;
+        }
+
+        function getNewPiece() {
+            const pieceNames = 'ILJOTSZ';
+            const pieceName = pieceNames[pieceNames.length * Math.random() | 0];
+            const color = pieceColors[pieceName];
+            console.log('getNewPiece');
+            return { shape: pieces[pieceName], x: 4, y: 0, color: color };
+        }
+
+        function drawGrid() {
+            for (let r = 0; r < grid.length; r++) {
+                for (let c = 0; c < grid[r].length; c++) {
+                    context.fillStyle = grid[r][c] ? grid[r][c] : 'white';
+                    context.fillRect(c * 30, r * 30, 30, 30);
+                    context.strokeRect(c * 30, r * 30, 30, 30);
+                }
+            }
+            console.log('drawGrid');
+        }
+
+        function drawPiece() {
+            context.fillStyle = currentPiece.color;
+            currentPiece.shape.forEach((row, dy) => {
+                row.forEach((value, dx) => {
+                    if (value) {
+                        context.fillRect((currentPiece.x + dx) * 30, (currentPiece.y + dy) * 30, 30, 30);
+                        context.strokeRect((currentPiece.x + dx) * 30, (currentPiece.y + dy) * 30, 30, 30);
+                    }
+                });
+            });
+            console.log('drawPiece');
+        }
+
+        function drawNextPiece() {
+            nextPieceContext.clearRect(0, 0, nextPieceCanvas.width, nextPieceCanvas.height);
+            nextPieceContext.fillStyle = nextPiece.color;
+            nextPiece.shape.forEach((row, dy) => {
+                row.forEach((value, dx) => {
+                    if (value) {
+                        nextPieceContext.fillRect(dx * 30, dy * 30, 30, 30);
+                        nextPieceContext.strokeRect(dx * 30, dy * 30, 30, 30);
+                    }
+                });
+            });
+            console.log('drawNextPiece');
+        }
+
+        function update(time = 0) {
+            const deltaTime = time - lastTime;
+            lastTime = time;
+            dropCounter += deltaTime;
+
+            if (dropCounter > dropInterval) {
+                dropPiece();
+                dropCounter = 0;
+            }
+
+            drawGrid();
+            drawPiece();
+            drawNextPiece();
+
+            if (!gamePaused) {
+                requestAnimationFrame(update);
+            }
+            console.log('update');
+        }
+
+        function dropPiece() {
+            if (!collision(0, 1, currentPiece.shape)) {
+                currentPiece.y++;
+            } else {
+                lockPiece();
+                currentPiece = nextPiece;
+                nextPiece = getNewPiece();
+                pieceCount++;
+                if (pieceCount % 40 === 0) {
+                    dropInterval *= 0.9;
+                }
+                if (collision(0, 0, currentPiece.shape)) {
+                    gameOver();
+                }
+            }
+            console.log('dropPiece');
+        }
+
+        function movePieceLeft() {
+            if (!collision(-1, 0, currentPiece.shape)) {
+                currentPiece.x--;
+            }
+            console.log('movePieceLeft');
+        }
+
+        function movePieceRight() {
+            if (!collision(1, 0, currentPiece.shape)) {
+                currentPiece.x++;
+            }
+            console.log('movePieceRight');
+        }
+
+        function rotatePiece() {
+            const rotated = rotate(currentPiece.shape);
+            if (!collision(0, 0, rotated)) {
+                currentPiece.shape = rotated;
+            }
+            console.log('rotatePiece');
+        }
+
+        function dropPieceFast() {
+            while (!collision(0, 1, currentPiece.shape)) {
+                currentPiece.y++;
+            }
+            lockPiece();
+            currentPiece = nextPiece;
+            nextPiece = getNewPiece();
+            pieceCount++;
+            if (pieceCount % 40 === 0) {
+                dropInterval *= 0.9;
+            }
+            if (collision(0, 0, currentPiece.shape)) {
+                gameOver();
+            }
+            console.log('dropPieceFast');
+        }
+
+        function rotate(shape) {
+            return shape[0].map((_, index) => shape.map(row => row[index]).reverse());
+        }
+
+        function collision(x, y, shape) {
+            for (let dy = 0; dy < shape.length; dy++) {
+                for (let dx = 0; dx < shape[dy].length; dx++) {
+                    if (shape[dy][dx] &&
+                        (grid[currentPiece.y + dy + y] &&
+                        grid[currentPiece.y + dy + y][currentPiece.x + dx + x]) !== 0) {
+                        return true;
+                    }
+                }
+            }
+            console.log('collision');
+            return false;
+        }
+
+        function lockPiece() {
+            currentPiece.shape.forEach((row, dy) => {
+                row.forEach((value, dx) => {
+                    if (value) {
+                        grid[currentPiece.y + dy][currentPiece.x + dx] = currentPiece.color;
+                    }
+                });
+            });
+            clearRows();
+            console.log('lockPiece');
+        }
+
+        function clearRows() {
+            let rowsCleared = 0;
+            for (let y = grid.length - 1; y >= 0; y--) {
+                if (grid[y].every(cell => cell !== 0)) {
+                    grid.splice(y, 1);
+                    grid.unshift(new Array(10).fill(0));
+                    rowsCleared++;
+                    y++;
+                }
+            }
+            score += rowsCleared * 10; // 10 points for each cleared row
+            updateScore();
+            updateLeaderboard();
+            console.log('clearRows');
+        }
+
+        function gameOver() {
+            gamePaused = true;
+            saveScore();
+            alert(`Game Over! Your score: ${score}`);
+            console.log('gameOver');
+        }
+
+        function startPauseGame() {
+            gamePaused = !gamePaused;
+            if (!gamePaused) {
+                lastTime = 0;
+                requestAnimationFrame(update);
+            }
+            console.log('startPauseGame');
+        }
+
+        function restartGame() {
+            grid.forEach(row => row.fill(0));
+            currentPiece = getNewPiece();
+            nextPiece = getNewPiece();
+            score = 0;
+            dropInterval = 1000;
+            dropCounter = 0;
+            lastTime = 0;
+            pieceCount = 0;
+            gamePaused = false;
+            updateScore();
+            requestAnimationFrame(update);
+            console.log('restartGame');
+        }
+
+        function saveScore() {
+            const scores = JSON.parse(localStorage.getItem('tetrisScores')) || [];
+            scores.push({ name: playerName, score: score });
+            scores.sort((a, b) => b.score - a.score);
+            if (scores.length > 10) {
+                scores.pop();
+            }
+            localStorage.setItem('tetrisScores', JSON.stringify(scores));
+            updateLeaderboard();
+            console.log('saveScore');
+        }
+
+        function updateLeaderboard() {
+            const scores = JSON.parse(localStorage.getItem('tetrisScores')) || [];
+            const leaderboardList = document.getElementById('leaderboardList');
+            leaderboardList.innerHTML = '';
+            scores.forEach((scoreEntry, index) => {
+                const listItem = document.createElement('li');
+                listItem.textContent = `${index + 1}. ${scoreEntry.name}: ${scoreEntry.score}`;
+                leaderboardList.appendChild(listItem);
+            });
+            console.log('updateLeaderboard');
+        }
+
+        function updateScore() {
+            const scoreDisplay = document.getElementById('scoreDisplay');
+            scoreDisplay.textContent = `Score: ${score}`;
+            console.log('updateScore');
+        }
+
+        document.getElementById('startPauseButton').addEventListener('click', startPauseGame);
+        document.getElementById('leftButton').addEventListener('click', movePieceLeft);
+        document.getElementById('rightButton').addEventListener('click', movePieceRight);
+        document.getElementById('rotateButton').addEventListener('click', rotatePiece);
+        document.getElementById('dropButton').addEventListener('click', dropPieceFast);
+        document.getElementById('restartButton').addEventListener('click', restartGame);
+
+        document.onkeydown = function (e) {
+          console.log('key down');
+          console.log(e);
+        };
+
+        document.addEventListener('keydown', event => {
+            if (event.code === 'Space') {
+                startPauseGame();
+            } else if (event.code === 'ArrowLeft') {
+                movePieceLeft();
+            } else if (event.code === 'ArrowRight') {
+                movePieceRight();
+            } else if (event.code === 'ArrowUp') {
+                rotatePiece();
+            } else if (event.code === 'ArrowDown') {
+                dropPieceFast();
+            } else if (event.code === 'Escape') {
+                restartGame();
+            }
+        });
+
+        updateLeaderboard();
+        updateScore();
+        drawGrid(); // Initial draw of the grid
+        drawNextPiece(); // Initial draw of the next piece
+        startPauseGame(); // Start the game initially
+    </script>
+</body>
+</html>
