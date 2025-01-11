@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tetris Game</title>
+    <style>
+        .game-container {
+            display: flex;
+        }
+        .game-grid {
+            border: 1px solid black;
+            width: 200px;
+            height: 400px;
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            grid-template-rows: repeat(20, 1fr);
+        }
+        .game-grid div {
+            width: 20px;
+            height: 20px;
+            outline: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        .controls {
+            margin-left: 20px;
+        }
+        .score-board {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div id="tetris" class="game-grid"></div>
+        <div class="controls">
+            <button onclick="startPauseGame()">Start/Pause</button>
+            <button onclick="moveLeft()">Left</button>
+            <button onclick="moveRight()">Right</button>
+            <button onclick="rotatePiece()">Rotate</button>
+            <button onclick="dropPiece()">Drop</button>
+            <button onclick="restartGame()">Restart</button>
+            <div id="next-piece">Next Piece:</div>
+            <div id="delay-time">Delay Time: 1000ms</div>
+            <div id="current-score">Current Score: 0</div>
+        </div>
+        <div class="score-board">
+            <h2>High Scores</h2>
+            <table id="scoreTable"></table>
+        </div>
+    </div>
+    <script>
+        // Constants and initial setup
+        const pieces = [
+            [[1,1],[1,1]],   // O
+            [[1,1,1,1]],     // I
+            [[1,1,1],[0,1,0]], // T
+            [[1,1,1],[1,0,0]], // L
+            [[1,1,1],[0,0,1]], // J
+            [[1,1,0],[0,1,1]], // S
+            [[0,1,1],[1,1,0]]  // Z
+        ];
+        const colors = ['cyan', 'blue', 'orange', 'yellow', 'green', 'purple', 'red'];
+        let board = [];
+        let score = 0;
+        let currentPiece = null;
+        let nextPiece = null;
+        let gameLoop;
+        let delay = 1000; // Start delay
+        let pieceCounter = 0;
+        let isPaused = false;
+        let playerName = '';
+        let highScores = [];
+
+        // Game initialization
+        function init() {
+            console.log('init');
+            document.getElementById('tetris').innerHTML = '';
+            board = new Array(200).fill(0);
+            score = 0;
+            pieceCounter = 0;
+            delay = 1000;
+            playerName = prompt("Enter your name:") || "Player";
+            restoreGameHistory();
+            displayLastGames();
+            currentPiece = newPiece();
+            nextPiece = newPiece();
+            updateScoreDisplay();
+            updateNextPieceDisplay();
+            updateDelayTimeDisplay();
+            updateScoreTable();
+            gameTick();
+        }
+
+        function restoreGameHistory() {
+            console.log('restoreGameHistory');
+            if (localStorage.getItem('highScores')) {
+                highScores = JSON.parse(localStorage.getItem('highScores'));
+            }
+        }
+
+        function displayLastGames() {
+            console.log('displayLastGames');
+            // Here you can implement showing the last 10 games if stored
+            // For simplicity, we'll just log it
+            console.log("Displaying last 10 games...");
+        }
+
+        function newPiece() {
+            console.log('newPiece');
+            const piece = pieces[Math.floor(Math.random() * pieces.length)];
+            return {
+                piece: piece,
+                x: 3,
+                y: 0,
+                color: colors[pieces.indexOf(piece)]
+            };
+        }
+
+        // Game loop
+        function gameTick() {
+            console.log('gameTick');
+            if (!isPaused) {
+                if (canMove(currentPiece, 0, 1)) {
+                    currentPiece.y++;
+                } else {
+                    freeze();
+                    currentPiece = nextPiece;
+                    nextPiece = newPiece();
+                    updateNextPieceDisplay();
+                    if (!canMove(currentPiece, 0, 0)) {
+                        gameOver();
+                        return;
+                    }
+                }
+                draw();
+                pieceCounter++;
+                if (pieceCounter % 40 === 0 && delay > 100) {
+                    delay *= 0.9; // Decrease delay by 10%
+                    updateDelayTimeDisplay();
+                }
+            }
+            gameLoop = setTimeout(gameTick, delay);
+        }
+
+        function canMove(piece, x, y) {
+            console.log('canMove');
+            for (let r = 0; r < piece.piece.length; r++) {
+                for (let c = 0; c < piece.piece[r].length; c++) {
+                    if (piece.piece[r][c]) {
+                        const newX = piece.x + x + c;
+                        const newY = piece.y + y + r;
+                        if (newX < 0 || newX >= 10 || newY >= 20 || (newY > 0 && board[newY * 10 + newX])) {
+                            return false;
+                        }
+                    }
+                }
+            }
+            return true;
+        }
+
+        function freeze() {
+            console.log('freeze');
+            for (let r = 0; r < currentPiece.piece.length; r++) {
+                for (let c = 0; c < currentPiece.piece[r].length; c++) {
+                    if (currentPiece.piece[r][c]) {
+                        board[(currentPiece.y + r) * 10 + currentPiece.x + c] = currentPiece.color;
+                    }
+                }
+            }
+            checkRows();
+        }
+
+        function checkRows() {
+            console.log('checkRows');
+            for (let y = 19; y >= 0;) {
+                if (board.slice(y * 10, y * 10 + 10).every(cell => cell !== 0)) {
+                    board.splice(y * 10, 10);
+                    board.unshift(...Array(10).fill(0));
+                    score += calculateScoreForRow(y);
+                    y++;
+                } else {
+                    y--;
+                }
+            }
+            updateScoreDisplay();
+            updateHighScores();
+        }
+
+        function calculateScoreForRow(rowIndex) {
+            console.log('calculateScoreForRow');
+            return board.slice(rowIndex * 10, rowIndex * 10 + 10).reduce((acc, color, index) => {
+                let colorIndex = colors.indexOf(color);
+                console.log('calculateScoreForRow', rowIndex, acc, color, index);
+
+                if (colorIndex !== -1) {
+                    console.log('calculateScoreForRow', acc, colorIndex);
+                    return acc + ((colorIndex + 1) * 2);
+                }
+                return acc;
+            }, 0);
+        }
+
+        function updateScoreDisplay() {
+            console.log('updateScoreDisplay');
+            document.getElementById('current-score').innerText = `Current Score: ${score}`;
+        }
+
+        function updateNextPieceDisplay() {
+            console.log('updateNextPieceDisplay');
+            document.getElementById('next-piece').innerText = `Next Piece: ${nextPiece.color}`;
+        }
+
+        function updateDelayTimeDisplay() {
+            console.log('updateDelayTimeDisplay');
+            document.getElementById('delay-time').innerText = `Delay Time: ${delay}ms`;
+        }
+
+        function updateHighScores() {
+            console.log('updateHighScores');
+            let newScoreEntry = { name: playerName, score: score };
+            highScores.push(newScoreEntry);
+            highScores.sort((a, b) => b.score - a.score);
+            if (highScores.length > 10) {
+                highScores.pop();
+            }
+            localStorage.setItem('highScores', JSON.stringify(highScores));
+            updateScoreTable();
+        }
+
+        function updateScoreTable() {
+            console.log('updateScoreTable');
+            let table = document.getElementById('scoreTable');
+            table.innerHTML = '';
+            highScores.forEach((entry, index) => {
+                let row = table.insertRow();
+                let cell1 = row.insertCell(0);
+                let cell2 = row.insertCell(1);
+                let cell3 = row.insertCell(2);
+                cell1.textContent = index + 1;
+                cell2.textContent = entry.name;
+                cell3.textContent = entry.score;
+            });
+        }
+
+        function draw() {
+            console.log('draw');
+            document.getElementById('tetris').innerHTML = '';
+            board.forEach(cell => {
+                const div = document.createElement('div');
+                if (cell) div.style.backgroundColor = cell;
+                document.getElementById('tetris').appendChild(div);
+            });
+            drawPiece(currentPiece);
+        }
+
+        function drawPiece(piece) {
+            console.log('drawPiece');
+            piece.piece.forEach((row, y) => {
+                row.forEach((value, x) => {
+                    if (value) {
+                        document.getElementById('tetris').children[(piece.y + y) * 10 + piece.x + x].style.backgroundColor = piece.color;
+                    }
+                });
+            });
+        }
+
+        // Control functions
+        function startPauseGame() {
+            console.log('startPauseGame');
+            isPaused = !isPaused;
+            if (!gameLoop && !isPaused) {
+                gameTick();
+            }
+        }
+
+        function moveLeft() {
+            console.log('moveLeft');
+            if (canMove(currentPiece, -1, 0)) currentPiece.x--;
+            draw();
+        }
+
+        function moveRight() {
+            console.log('moveRight');
+            if (canMove(currentPiece, 1, 0)) currentPiece.x++;
+            draw();
+        }
+
+        function rotatePiece() {
+            console.log('rotatePiece');
+            const rotated = currentPiece.piece[0].map((_, index) => 
+                currentPiece.piece.map(row => row[index]).reverse()
+            );
+            if (canMove({...currentPiece, piece: rotated}, 0, 0)) {
+                currentPiece.piece = rotated;
+            }
+            draw();
+        }
+
+        function dropPiece() {
+            console.log('dropPiece');
+            while (canMove(currentPiece, 0, 1)) {
+                currentPiece.y++;
+            }
+            freeze();
+            currentPiece = nextPiece;
+            nextPiece = newPiece();
+            updateNextPieceDisplay();
+            if (!canMove(currentPiece, 0, 0)) {
+                gameOver();
+                return;
+            }
+            draw();
+        }
+
+        function restartGame() {
+            console.log('restartGame');
+            clearTimeout(gameLoop);
+            init();
+        }
+
+        function gameOver() {
+            console.log('gameOver');
+            alert("Game Over! Your score is " + score);
+            restartGame();
+        }
+
+        // Start game
+        init();
+
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            if (isPaused) return;
+            // concsole.log(e.code);
+            switch(e.key) {
+                case 'ArrowLeft': moveLeft(); break;
+                case 'ArrowRight': moveRight(); break;
+                case 'ArrowUp': rotatePiece(); break;
+                case 'ArrowDown': dropPiece(); break;
+                case ' ': startPauseGame(); break;
+                case 'Escape': restartGame(); break;
+            }
+        });
+    </script>
+</body>
+</html>
