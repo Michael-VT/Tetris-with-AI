@@ -71,9 +71,6 @@ For example, const pieces - a table containing Tetris figures, should be placed 
 
 <img src="TetrisMistral.png" alt="This game is the best result that the AI ​​Mistral has given." width="200"/>
 
-As a result, I got pages with games.
+<img src="TetrisGmini2.png" alt="This game is the best result that the AI Google G-mini 2 has given." width="200"/>
 
-#//![All the best in 2025!](2025.jpeg?raw=true "Tetris from AI at start of 2025 year!")
-#//![This game is the best result that the AI ​​Deepseek-2 has given.](TetrisDeepseek.png?raw=true "Tetris made by Deepseek")
-#//![This game is the best result that the Grok-2 AI has produced.](TetrisGrok.png?raw=true "Tetris made by Grok-2")
-#//![This game is the best result that the AI ​​Mistral has given.](TetrisMistral.png?raw=true "Tetris made by Mistral")
+As a result, I got pages with games.
