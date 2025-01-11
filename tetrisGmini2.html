@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Тетрис</title>
+    <style>
+        /* Стили для холста, кнопок и таблицы */
+        #game-board {
+            border: 1px solid black;
+        }
+        .controls button {
+            margin: 5px;
+            padding: 10px;
+        }
+        #score-table {
+          border-collapse: collapse;
+          width: 300px;
+        }
+
+        #score-table td, #score-table th {
+          border: 1px solid #ddd;
+          padding: 8px;
+          text-align: left;
+        }
+
+        #score-table tr:nth-child(even){background-color: #f2f2f2;}
+
+        #score-table th {
+          background-color: #4CAF50;
+          color: white;
+        }
+    </style>
+</head>
+<body>
+    <h1>Тетрис</h1>
+    <canvas id="game-board" width="200" height="400"></canvas>
+    <div class="controls">
+        <button id="start-pause">Старт/Пауза</button>
+        <button id="left">Влево</button>
+        <button id="right">Вправо</button>
+        <button id="rotate">Вращать</button>
+        <button id="down">Опустить</button>
+        <button id="restart">Рестарт</button>
+    </div>
+    <div>
+        Текущий счет: <span id="current-score">0</span>
+    </div>
+    <div>
+        Следующая фигура: <canvas id="next-piece" width="80" height="80"></canvas>
+    </div>
+        <div>
+        Задержка: <span id="delay">1000</span>ms
+    </div>
+    <div>
+      <h2>Таблица рекордов</h2>
+      <table id="score-table">
+        <tr>
+          <th>Место</th>
+          <th>Имя</th>
+          <th>Счет</th>
+        </tr>
+      </table>
+    </div>
+    <script>
+        // Константы
+        const canvas = document.getElementById('game-board');
+        const ctx = canvas.getContext('2d');
+        const nextPieceCanvas = document.getElementById('next-piece');
+        const nextPieceCtx = nextPieceCanvas.getContext('2d');
+        const scoreDisplay = document.getElementById('current-score');
+        const delayDisplay = document.getElementById('delay');
+        const scoreTable = document.getElementById('score-table');
+        const startPauseButton = document.getElementById('start-pause');
+        const leftButton = document.getElementById('left');
+        const rightButton = document.getElementById('right');
+        const rotateButton = document.getElementById('rotate');
+        const downButton = document.getElementById('down');
+        const restartButton = document.getElementById('restart');
+        const width = 10;
+        const height = 20;
+        const blockSize = 20;
+        const pieces = [
+            [[1,1,1,1]], // I
+            [[1,1,1],[0,1,0]], // T
+            [[1,1,0],[0,1,1]], // Z
+            [[0,1,1],[1,1,0]], // S
+            [[1,1],[1,1]], // O
+            [[1,0,0],[1,1,1]], // L
+            [[0,0,1],[1,1,1]]  // J
+        ];
+        const colors = ['#FF0D72', '#0DC2FF', '#0DFF72', '#F538FF', '#FF8E0D', '#FFE138', '#3877FF'];
+
+        let board = [];
+        let currentPiece;
+        let currentX;
+        let currentY;
+        let currentRotation;
+        let score = 0;
+        let playerName;
+        let gameRunning = false;
+        let dropInterval;
+        let delay = 1000;
+        let piecesDropped = 0;
+        let nextPiece;
+        let scores = [];
+
+        // Функции для работы с localStorage
+        function getScoresFromStorage() {
+            const storedScores = localStorage.getItem('tetrisScores');
+            return storedScores ? JSON.parse(storedScores) : [];
+        }
+
+        function saveScoresToStorage() {
+            localStorage.setItem('tetrisScores', JSON.stringify(scores));
+        }
+
+        function getLastPlayerNameFromStorage(){
+          return localStorage.getItem('lastPlayerName') || "";
+        }
+
+        function saveLastPlayerNameToStorage(name){
+          localStorage.setItem('lastPlayerName', name);
+        }
+
+        // Инициализация игры
+        function init() {
+            board = Array(height).fill(null).map(() => Array(width).fill(0));
+            scores = getScoresFromStorage();
+            playerName = prompt("Введите ваше имя", getLastPlayerNameFromStorage()) || "Игрок";
+            saveLastPlayerNameToStorage(playerName);
+            displayScores();
+            newPiece();
+            draw();
+            updateScoreDisplay();
+            updateDelayDisplay();
+        }
+
+        // Создание новой фигуры
+        function newPiece() {
+            const rand = Math.floor(Math.random() * pieces.length);
+            currentPiece = pieces[rand];
+            currentX = Math.floor(width / 2) - Math.floor(currentPiece[0].length / 2);
+            currentY = 0;
+            currentRotation = 0;
+            if(!nextPiece){
+              const nextRand = Math.floor(Math.random() * pieces.length);
+              nextPiece = {
+                shape: pieces[nextRand],
+                color: colors[nextRand]
+              };
+            }
+            drawNextPiece();
+        }
+
+        function drawNextPiece() {
+          nextPieceCtx.clearRect(0, 0, nextPieceCanvas.width, nextPieceCanvas.height);
+          nextPieceCtx.fillStyle = nextPiece.color;
+          for (let y = 0; y < nextPiece.shape.length; y++) {
+            for (let x = 0; x < nextPiece.shape[y].length; x++) {
+              if (nextPiece.shape[y][x]) {
+                nextPieceCtx.fillRect(x * blockSize, y * blockSize, blockSize, blockSize);
+              }
+            }
+          }
+        }
+
+        // Поворот фигуры
+        function rotatePiece() {
+            const rotatedPiece = currentPiece[0].map((val, index) => currentPiece.map(row => row[index]).reverse());
+            if (checkCollision(currentX, currentY, rotatedPiece)) return;
+            currentPiece = rotatedPiece;
+        }
+
+        // Проверка столкновений
+        function checkCollision(x, y, piece) {
+            for (let row = 0; row < piece.length; row++) {
+                for (let col = 0; col < piece[row].length; col++) {
+                    if (piece[row][col]) {
+                        let boardX = x + col;
+                        let boardY = y + row;
+                        if (boardX < 0 || boardX >= width || boardY >= height || (boardY >= 0 && board[boardY][boardX])) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        // Движение фигуры вниз
+        function moveDown() {
+            if (checkCollision(currentX, currentY + 1, currentPiece)) {
+                freezePiece();
+                return;
+            }
+            currentY++;
+            draw();
+        }
+
+        // Фиксация фигуры на поле
+        function freezePiece() {
+            for (let row = 0; row < currentPiece.length; row++) {
+                for (let col = 0; col < currentPiece[row].length; col++) {
+                    if (currentPiece[row][col]) {
+                        board[currentY + row][currentX + col] = colors[pieces.indexOf(currentPiece)];
+                    }
+                }
+            }
+            clearLines();
+            newPiece();
+            if (checkCollision(currentX, currentY, currentPiece)) {
+              gameOver();
+            }
+            piecesDropped++;
+            if (piecesDropped % 100 === 0 && delay > 100) {
+              delay *= 0.9;
+              clearInterval(dropInterval);
+              dropInterval = setInterval(moveDown, delay);
+              updateDelayDisplay();
+            }
+        }
+
+
+function calculateScore(clearedRows) {
+    let currentScore = 0; // Инициализируем счет за текущее удаление линий
+    let scoreMultiplier = 0; // Инициализируем множитель счета
+
+    // Проходим по всем удаленным рядам
+    for (let i = 0; i < clearedRows.length; i++) {
+        const row = clearedRows[i]; // Получаем индекс текущего удаленного ряда
+
+        // Проходим по всем клеткам в удаленном ряду
+        for (let j = 0; j < width; j++) {
+            // Проверяем, есть ли в клетке цвет (т.е. была ли там часть фигуры)
+            if (board[row][j]) {
+                const colorIndex = colors.indexOf(board[row][j]); // Получаем индекс цвета в массиве colors
+                const blockScore = (colorIndex + 1) * 2; // Рассчитываем очки за один блок: (индекс цвета + 1) * 2
+                currentScore += blockScore; // Добавляем очки за блок к общему счету за удаление линий
+                scoreMultiplier += blockScore; // Добавляем очки за блок к множителю
+            }
+        }
+    }
+
+    // Рассчитываем множитель на основе текущей задержки
+    scoreMultiplier = Math.floor(scoreMultiplier * (1000 - delay) / 1000); //множитель тем больше, чем меньше задержка.
+
+    score += currentScore + scoreMultiplier; // Добавляем к общему счету очки за удаление линий и множитель
+    updateScoreDisplay(); // Обновляем отображение счета на странице
+}
+
+        // Очистка заполненных линий
+        function clearLines() {
+            let clearedRows = [];
+            for (let y = height - 1; y >= 0; y--) {
+                if (board[y].every(cell => cell)) {
+                    clearedRows.push(y);
+                    board.splice(y, 1);
+                    board.unshift(Array(width).fill(0));
+                }
+            }
+            if(clearedRows.length > 0){
+              calculateScore(clearedRows);
+            }
+        }
+
+        // Конец игры
+        function gameOver() {
+            clearInterval(dropInterval);
+            gameRunning = false;
+            alert("Игра окончена! Ваш счет: " + score);
+            addScore(playerName, score);
+            displayScores();
+            init();
+        }
+
+        function addScore(name, scoreToAdd){
+          scores.push({name, score: scoreToAdd});
+          scores.sort((a,b) => b.score - a.score);
+          if(scores.length > 10){
+            scores.pop();
+          }
+          saveScoresToStorage();
+        }
+
+        function displayScores(){
+          while(scoreTable.rows.length > 1){
+            scoreTable.deleteRow(1);
+          }
+          for(let i = 0; i < scores.length; i++){
+            const row = scoreTable.insertRow();
+            const placeCell = row.insertCell();
+            const nameCell = row.insertCell();
+            const scoreCell = row.insertCell();
+            placeCell.textContent = i + 1;
+            nameCell.textContent = scores[i].name;
+            scoreCell.textContent = scores[i].score;
+          }
+        }
+
+        // Отрисовка
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    if (board[y][x]) {
+                        ctx.fillStyle = board[y][x];
+                        ctx.fillRect(x * blockSize, y * blockSize, blockSize, blockSize);
+                    }
+                }
+            }
+            if (currentPiece) {
+                ctx.fillStyle = colors[pieces.indexOf(currentPiece)];
+                for (let row = 0; row < currentPiece.length; row++) {
+                    for (let col = 0; col < currentPiece[row].length; col++) {
+                        if (currentPiece[row][col]) {
+                            ctx.fillRect((currentX + col) * blockSize, (currentY + row) * blockSize, blockSize, blockSize);
+                        }
+                    }
+                }
+            }
+        }
+
+        function updateScoreDisplay(){
+          scoreDisplay.textContent = score;
+        }
+
+        function updateDelayDisplay(){
+          delayDisplay.textContent = delay;
+        }
+
+        // Управление
+        document.addEventListener('keydown', (e) => {
+            if (!gameRunning) return;
+            switch (e.key) {
+                case 'ArrowLeft':
+                    if (!checkCollision(currentX - 1, currentY, currentPiece)) currentX--;
+                    break;
+                case 'ArrowRight':
+                    if (!checkCollision(currentX + 1, currentY, currentPiece)) currentX++;
+                    break;
+                case 'ArrowUp':
+                    rotatePiece();
+                    break;
+                case 'ArrowDown':
+                    moveDown();
+                    break;
+                case ' ':
+                    toggleGame();
+                    break;
+                case 'Escape':
+                    restartGame();
+                    break;
+            }
+            draw();
+        });
+
+        startPauseButton.addEventListener('click', toggleGame);
+        leftButton.addEventListener('click', () => {if (!checkCollision(currentX - 1, currentY, currentPiece)) currentX--; draw();});
+        rightButton.addEventListener('click', () => {if (!checkCollision(currentX + 1, currentY, currentPiece)) currentX++; draw();});
+        rotateButton.addEventListener('click', () => {rotatePiece(); draw();});
+        downButton.addEventListener('click', moveDown);
+        restartButton.addEventListener('click', restartGame);
+
+        function toggleGame() {
+            gameRunning = !gameRunning;
+            if (gameRunning) {
+                dropInterval = setInterval(moveDown, delay);
+            } else {
+                clearInterval(dropInterval);
+            }
+        }
+
+        function restartGame(){
+          clearInterval(dropInterval);
+          score = 0;
+          init();
+          gameRunning = true;
+          dropInterval = setInterval(moveDown, delay);
+        }
+
+        init();
+
+    </script>
+</body>
+</html>
