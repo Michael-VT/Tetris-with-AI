@@ -1,7 +1,7 @@
 # Tetris-with-AI
 Attempts to write game code using prompts to different AI systems.
 
-![All the best in 2025!]( <2025.jpeg?raw=true "Tetris from AI at start of 2025 year!")
+![All the best in 2025!](2025.jpeg?raw=true "Tetris from AI at start of 2025 year!")
 
 I wrote a prompt and sent it to different AI systems, and saved the result in a file called Tetris-AI.html, where AI is the name of the AI ​​that created the game.
 
