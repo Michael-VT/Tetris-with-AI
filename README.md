@@ -74,3 +74,9 @@ For example, const pieces - a table containing Tetris figures, should be placed 
 <img src="TetrisGmini2.png" alt="This game is the best result that the AI Google G-mini 2 has given." width="200"/>
 
 As a result, I got pages with games.
+
+I liked the Mistral AI the most so far. Only with it the game fully worked after the fourth iteration. 
+
+It took another five iterations for the program to become more or less compliant with the task. 
+
+With all the others I had to tinker with it, going through more than ten iterations and still not being able to fully meet all the pump requirements.
