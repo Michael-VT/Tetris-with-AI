@@ -105,7 +105,8 @@
         let nextPiece;
         let leaderboard = JSON.parse(localStorage.getItem('leaderboard')) || [];
         let animationFrameId;
-
+        document.body.style.zoom="80%";
+        
         function createBoard() {
             board = Array.from({ length: rows }, () => Array(columns).fill(0));
         }
