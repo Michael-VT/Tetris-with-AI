@@ -62,7 +62,7 @@ Next, add one to the resulting value and multiply by an integer value from the v
 
 Constants in the script and variables should be declared before calling functions.
 
-You can adjust the size of the game by changing the value before the percentages in this line from 80 percent to what is normal for you: "document.body.style.zoom="80%";".
+You can adjust the size of the game by changing the value before the percentages in this line from 80 percent to what is normal for you: 'document.body.style.zoom="80%";'.
 
 For example, const pieces - a table containing Tetris figures, should be placed immediately in the script after the declaration of the script, immediately after <script>. It is necessary to write the code in the form of one html page in accordance with the description above.
 
